@@ -10,6 +10,7 @@ yahooFinance.suppressNotices(['ripHistorical']);
 // 인터페이스 정의
 interface StockInfo {
   ticker: string;
+  no_data_count?: number;
 }
 
 interface MarketHoliday {
@@ -28,11 +29,11 @@ async function isMarketHoliday(date: string): Promise<boolean> {
   return holidays.length > 0;
 }
 
-// 티커 상태 업데이트
-async function updateTickerStatus(ticker: string, active: boolean) {
+// 티커 상태 및 no_data_count 업데이트
+async function updateTickerStatus(ticker: string, active: boolean, noDataCount: number) {
   await query(
-    `UPDATE stock_info SET active = $1, updated_at = CURRENT_TIMESTAMP WHERE ticker = $2`,
-    [active, ticker]
+    `UPDATE stock_info SET active = $1, no_data_count = $2, updated_at = CURRENT_TIMESTAMP WHERE ticker = $3`,
+    [active, noDataCount, ticker]
   );
 }
 
@@ -47,16 +48,27 @@ async function fetchAndSaveOHLCForDate(ticker: string, date: string) {
     });
 
     const quotes = chartData.quotes;
+    // 현재 no_data_count 조회
+    const currentStock = await query<StockInfo>(
+      `SELECT no_data_count FROM stock_info WHERE ticker = $1`,
+      [ticker]
+    );
+    let noDataCount = currentStock[0]?.no_data_count || 0;
+
     if (!quotes.length) {
       console.log(`No data for ${ticker} on ${date}`);
-      await updateTickerStatus(ticker, false);
+      noDataCount += 1;
+      const active = noDataCount < 10;
+      await updateTickerStatus(ticker, active, noDataCount);
       return;
     }
 
     const entry = quotes.find(q => q.date.toISOString().split('T')[0] === date);
     if (!entry) {
       console.log(`No matching data for ${ticker} on ${date}`);
-      await updateTickerStatus(ticker, false);
+      noDataCount += 1;
+      const active = noDataCount < 10;
+      await updateTickerStatus(ticker, active, noDataCount);
       return;
     }
 
@@ -85,14 +97,22 @@ async function fetchAndSaveOHLCForDate(ticker: string, date: string) {
     );
 
     console.log(`OHLC data for ${ticker} on ${date} saved`);
-    await updateTickerStatus(ticker, true);
+    await updateTickerStatus(ticker, true, 0); // 데이터 있으면 no_data_count 0으로 리셋
   } catch (error) {
+    const currentStock = await query<StockInfo>(
+      `SELECT no_data_count FROM stock_info WHERE ticker = $1`,
+      [ticker]
+    );
+    let noDataCount = currentStock[0]?.no_data_count || 0;
+    noDataCount += 1;
+    const active = noDataCount < 10;
+
     if (error.message.includes('No data found, symbol may be delisted')) {
       console.log(`Symbol ${ticker} may be delisted`);
     } else {
       console.error(`Error fetching/saving ${ticker}:`, error);
     }
-    await updateTickerStatus(ticker, false);
+    await updateTickerStatus(ticker, active, noDataCount);
   }
 }
 
@@ -106,9 +126,18 @@ async function fetchAndSaveOHLCForRange(ticker: string, startDate: string, endDa
     });
 
     const quotes = chartData.quotes;
+    // 현재 no_data_count 조회
+    const currentStock = await query<StockInfo>(
+      `SELECT no_data_count FROM stock_info WHERE ticker = $1`,
+      [ticker]
+    );
+    let noDataCount = currentStock[0]?.no_data_count || 0;
+
     if (!quotes.length) {
       console.log(`No data for ${ticker} from ${startDate} to ${endDate}`);
-      await updateTickerStatus(ticker, false);
+      noDataCount += 1;
+      const active = noDataCount < 10;
+      await updateTickerStatus(ticker, active, noDataCount);
       return;
     }
 
@@ -139,14 +168,22 @@ async function fetchAndSaveOHLCForRange(ticker: string, startDate: string, endDa
       );
       console.log(`OHLC data for ${ticker} on ${entryDate} saved`);
     }
-    await updateTickerStatus(ticker, true);
+    await updateTickerStatus(ticker, true, 0); // 데이터 있으면 no_data_count 0으로 리셋
   } catch (error) {
+    const currentStock = await query<StockInfo>(
+      `SELECT no_data_count FROM stock_info WHERE ticker = $1`,
+      [ticker]
+    );
+    let noDataCount = currentStock[0]?.no_data_count || 0;
+    noDataCount += 1;
+    const active = noDataCount < 10;
+
     if (error.message.includes('No data found, symbol may be delisted')) {
       console.log(`Symbol ${ticker} may be delisted`);
     } else {
       console.error(`Error fetching/saving ${ticker}:`, error);
     }
-    await updateTickerStatus(ticker, false);
+    await updateTickerStatus(ticker, active, noDataCount);
   }
 }
 
@@ -171,7 +208,7 @@ async function main() {
 
     // active=true 티커 조회
     const stocks = await query<StockInfo>(
-      `SELECT ticker FROM stock_info WHERE active = true`
+      `SELECT ticker, no_data_count FROM stock_info WHERE active = true`
     );
     console.log(`Found ${stocks.length} active tickers`);
 
