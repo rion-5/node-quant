@@ -24,11 +24,11 @@ interface OHLC {
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
 // Calculate Sortino Ratio
-function calculateSortino(returns: number[], rf = 0): number {
+function calculateSortino(returns: number[], rf: number = 0): number {
   const downsideReturns = returns.filter(r => r < rf);
-  const expectedReturn = returns.reduce((a, b) => a + b, 0) / returns.length;
+  const expectedReturn = returns.length > 0 ? mean(returns) : 0;
   const downsideStd = downsideReturns.length > 0 ? std(downsideReturns) : 0;
-  return downsideStd !== 0 ? (expectedReturn - rf) / downsideStd : Infinity;
+  return downsideStd !== 0 ? (expectedReturn - rf) / Number(std(downsideReturns)) : Infinity;
 }
 
 // Fetch last 120 trading days OHLC from DB or API
@@ -51,11 +51,14 @@ async function getRecentOHLC(ticker: string, days: number = 120): Promise<OHLC[]
       period2: endDateStr,
       interval: '1d',
     });
-    ohlcData = chartData.quotes.map(q => ({
-      date: q.date.toISOString().split('T')[0],
-      close: q.close,
-      volume: q.volume,
-    })).slice(-days);
+    ohlcData = chartData.quotes
+      .filter(q => q.close != null && q.volume != null) // Filter out null values
+      .map(q => ({
+        date: q.date.toISOString().split('T')[0],
+        close: q.close as number,
+        volume: q.volume as number,
+      }))
+      .slice(-days);
   }
 
   return ohlcData.reverse(); // Oldest to newest
@@ -80,7 +83,7 @@ async function processTicker(ticker: string, queryDate: string) {
     const returnRate = (lastClose - firstClose) / firstClose;
     if (returnRate < 0.2) return;
 
-    const returns = [];
+    const returns: number[] = [];
     for (let i = 1; i < closes.length; i++) {
       returns.push((closes[i] - closes[i-1]) / closes[i-1]);
     }
