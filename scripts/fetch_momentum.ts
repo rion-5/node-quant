@@ -25,10 +25,11 @@ const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
 // Calculate Sortino Ratio
 function calculateSortino(returns: number[], rf: number = 0): number {
+  if (returns.length === 0) return 0;
   const downsideReturns = returns.filter(r => r < rf);
-  const expectedReturn = returns.length > 0 ? mean(returns) : 0;
-  const downsideStd = downsideReturns.length > 0 ? std(downsideReturns) : 0;
-  return downsideStd !== 0 ? (expectedReturn - rf) / Number(std(downsideReturns)) : Infinity;
+  const expectedReturn = Number(mean(returns)) || 0;
+  const downsideStd = downsideReturns.length > 0 ? Number(std(downsideReturns)) : 0;
+  return downsideStd !== 0 ? (expectedReturn - rf) / downsideStd : 0;
 }
 
 // Fetch last 120 trading days OHLC from DB or API
@@ -46,19 +47,28 @@ async function getRecentOHLC(ticker: string, days: number = 120): Promise<OHLC[]
 
   if (ohlcData.length < days) {
     // Fetch from API if not enough
-    const chartData = await yahooFinance.chart(ticker, {
-      period1: startDateStr,
-      period2: endDateStr,
-      interval: '1d',
-    });
-    ohlcData = chartData.quotes
-      .filter(q => q.close != null && q.volume != null) // Filter out null values
-      .map(q => ({
-        date: q.date.toISOString().split('T')[0],
-        close: q.close as number,
-        volume: q.volume as number,
-      }))
-      .slice(-days);
+    try {
+      const chartData = await yahooFinance.chart(ticker, {
+        period1: startDateStr,
+        period2: endDateStr,
+        interval: '1d',
+      });
+      ohlcData = chartData.quotes
+        .filter(q => q.close != null && q.volume != null)
+        .map(q => ({
+          date: q.date.toISOString().split('T')[0],
+          close: q.close as number,
+          volume: q.volume as number,
+        }))
+        .slice(-days);
+    } catch (error) {
+      if (error.message.includes('No data found, symbol may be delisted')) {
+        console.log(`Symbol ${ticker} may be delisted`);
+      } else {
+        console.error(`Error fetching OHLC for ${ticker}:`, error);
+      }
+      return []; // Return empty array on error
+    }
   }
 
   return ohlcData.reverse(); // Oldest to newest
@@ -68,27 +78,36 @@ async function getRecentOHLC(ticker: string, days: number = 120): Promise<OHLC[]
 async function processTicker(ticker: string, queryDate: string) {
   try {
     const data = await getRecentOHLC(ticker);
-    if (data.length < 120) return;
+    if (data.length < 120) {
+      console.log(`Insufficient data for ${ticker}: ${data.length} days available`);
+      return;
+    }
 
-    const closes = data.map(d => d.close);
-    const volumes = data.map(d => d.volume);
+    const closes = data.map(d => d.close).filter(c => c != null);
+    const volumes = data.map(d => d.volume).filter(v => v != null);
+
+    if (closes.length < 120 || volumes.length < 120) {
+      console.log(`Invalid data for ${ticker}: missing close or volume`);
+      return;
+    }
 
     const lastClose = closes[closes.length - 1];
     if (lastClose < 50 || lastClose > 1000) return;
 
-    const avgVolume = volumes.reduce((a, b) => a + b, 0) / volumes.length;
-    if (avgVolume <= 10000000) return;
+    const avgVolume = volumes.length > 0 ? volumes.reduce((a, b) => a + b, 0) / volumes.length : 0;
+    if (avgVolume <= 10000000 || !isFinite(avgVolume)) return;
 
     const firstClose = closes[0];
     const returnRate = (lastClose - firstClose) / firstClose;
-    if (returnRate < 0.2) return;
+    if (returnRate < 0.2 || !isFinite(returnRate)) return;
 
     const returns: number[] = [];
     for (let i = 1; i < closes.length; i++) {
-      returns.push((closes[i] - closes[i-1]) / closes[i-1]);
+      const ret = (closes[i] - closes[i-1]) / closes[i-1];
+      if (isFinite(ret)) returns.push(ret);
     }
     const sortino = calculateSortino(returns);
-    if (sortino <= -0.5) return;
+    if (sortino <= -0.5 || !isFinite(sortino)) return;
 
     // Save to table
     await query(
@@ -124,10 +143,10 @@ async function main() {
     await delay(1000); // Rate limit
   }
 
-  console.log('Momentum stock selection completed');
+  console.log('베이스라인 모멘텀 데이터 수집 완료');
 }
 
 main().catch(err => {
-  console.error('Fatal error:', err);
+  console.error('치명적 오류:', err);
   process.exit(1);
 });
