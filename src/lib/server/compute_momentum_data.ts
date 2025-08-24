@@ -1,24 +1,23 @@
-// scripts/compute_momentum_data.ts
-// Usage: npx tsx scripts/compute_momentum_data.ts [startDate] [endDate]
-
+// src/lib/server/compute_momentum_data.ts
 import yahooFinance from 'yahoo-finance2';
 import { RSI } from 'technicalindicators';
 import { format, parse, subDays } from 'date-fns';
-import { query } from '../src/lib/server/db';
+import { query } from './db';
 
-// 메인 함수
-async function main(startDateStr: string = format(subDays(new Date(), 180), 'yyyy-MM-dd'), endDateStr: string = format(new Date(), 'yyyy-MM-dd')) {
+export async function computeMomentumData(
+  startDateStr: string = format(subDays(new Date(), 180), 'yyyy-MM-dd'),
+  endDateStr: string = format(new Date(), 'yyyy-MM-dd')
+): Promise<void> {
   try {
     const currentDate = format(new Date(), 'yyyy-MM-dd');
     const startDate = parse(startDateStr, 'yyyy-MM-dd', new Date());
     const endDate = parse(endDateStr, 'yyyy-MM-dd', new Date());
 
     if (startDate >= endDate) {
-      console.error('Error: startDate must be before endDate');
-      return;
+      throw new Error('startDate must be before endDate');
     }
 
-    // momentum_data 테이블 생성
+    // Create momentum_data table
     await query(`
       CREATE TABLE IF NOT EXISTS momentum_data (
         query_date DATE,
@@ -39,7 +38,7 @@ async function main(startDateStr: string = format(subDays(new Date(), 180), 'yyy
       );
     `);
 
-    // 거래일 수 계산
+    // Get trading days
     const tradingDaysRes = await query<{ trade_date: string }>(`
       SELECT DISTINCT date as trade_date
       FROM ohlc
@@ -49,16 +48,13 @@ async function main(startDateStr: string = format(subDays(new Date(), 180), 'yyy
 
     const numDays = tradingDaysRes.length;
     if (numDays < 15) {
-      console.log(`Not enough trading days data: ${numDays}/15`);
-      return;
+      throw new Error(`Not enough trading days data: ${numDays}/15`);
     }
 
     const firstDate = tradingDaysRes[tradingDaysRes.length - 1].trade_date;
     const lastDate = tradingDaysRes[0].trade_date;
 
-    console.log(`Processing period: ${firstDate} to ${lastDate} (${numDays} trading days)`);
-
-    // 후보 종목 필터링
+    // Fetch candidate tickers
     const candidates = await query<{ ticker: string; avg_volume: number }>(`
       SELECT ticker, AVG(volume)::BIGINT AS avg_volume
       FROM ohlc
@@ -70,11 +66,9 @@ async function main(startDateStr: string = format(subDays(new Date(), 180), 'yyy
       ORDER BY avg_volume DESC
     `, [startDateStr, endDateStr, numDays]);
 
-    console.log(`Found ${candidates.length} candidate tickers`);
-
     for (const { ticker, avg_volume } of candidates) {
       try {
-        // OHLC 데이터 가져오기
+        // Fetch OHLC data
         const series = await query<{ date: string; close: number; adjclose: number }>(`
           SELECT date, close, adjclose
           FROM ohlc
@@ -87,7 +81,7 @@ async function main(startDateStr: string = format(subDays(new Date(), 180), 'yyy
           continue;
         }
 
-        // Return Rate 및 Sortino Ratio 계산 (adjclose 사용)
+        // Calculate Return Rate and Sortino Ratio
         const firstClose = series[0].adjclose;
         const lastClose = series[series.length - 1].adjclose;
         const returnRate = (lastClose - firstClose) / firstClose;
@@ -116,12 +110,12 @@ async function main(startDateStr: string = format(subDays(new Date(), 180), 'yyy
           continue;
         }
 
-        // RSI 계산 (close 사용)
+        // Calculate RSI
         const closes = series.map((d) => d.close);
         const rsiValues = RSI.calculate({ period: 14, values: closes });
         const rsi = rsiValues[rsiValues.length - 1];
 
-        // 6M Change 계산 (close 사용)
+        // Calculate 6-month change
         const latestClose = closes[closes.length - 1];
         const sixMonthAgoClose = closes[0];
         if (sixMonthAgoClose === 0 || isNaN(sixMonthAgoClose)) {
@@ -130,7 +124,7 @@ async function main(startDateStr: string = format(subDays(new Date(), 180), 'yyy
         }
         const sixMonthChange = ((latestClose / sixMonthAgoClose - 1) * 100).toFixed(4);
 
-        // 펀더멘털 데이터 (yahoo-finance2 사용)
+        // Fetch fundamental data
         const summary = await yahooFinance.quoteSummary(ticker, {
           modules: ['financialData', 'earnings', 'defaultKeyStatistics'],
         });
@@ -140,11 +134,11 @@ async function main(startDateStr: string = format(subDays(new Date(), 180), 'yyy
         const pbr = summary.defaultKeyStatistics?.priceToBook ?? null;
 
         if (revenueGrowth === null || debtToEquity === null || pbr === null) {
-          console.log(`Skipping ${ticker}: missing fundamentals (Revenue Growth=${revenueGrowth}, Debt to Equity=${debtToEquity}, PBR=${pbr})`);
+          console.log(`Skipping ${ticker}: missing fundamentals`);
           continue;
         }
 
-        // 데이터 저장
+        // Save to database
         await query(`
           INSERT INTO momentum_data (
             query_date, ticker, first_date, last_date, first_close, last_close,
@@ -170,25 +164,12 @@ async function main(startDateStr: string = format(subDays(new Date(), 180), 'yyy
           avg_volume, sortino, returnRate, rsi, revenueGrowth,
           debtToEquity, pbr, sixMonthChange
         ]);
-
-        console.log(`Saved ${ticker}: RSI=${rsi}, Revenue Growth=${revenueGrowth}, Debt to Equity=${debtToEquity}, PBR=${pbr}, 6M Change=${sixMonthChange}%, Sortino=${sortino}, Return Rate=${returnRate}`);
       } catch (error) {
         console.error(`Error processing ${ticker}:`, error);
       }
     }
-
-    console.log('Completed momentum data computation');
   } catch (error) {
-    console.error('Error:', error);
+    console.error('Error in computeMomentumData:', error);
+    throw error;
   }
 }
-
-// 명령줄 인자 처리
-const [startDateArg, endDateArg] = process.argv.slice(2);
-const startDate = startDateArg || format(subDays(new Date(), 180), 'yyyy-MM-dd');
-const endDate = endDateArg || format(new Date(), 'yyyy-MM-dd');
-
-main(startDate, endDate).catch(err => {
-  console.error('Fatal error:', err);
-  process.exit(1);
-});
