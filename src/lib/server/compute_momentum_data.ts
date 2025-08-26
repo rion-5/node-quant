@@ -4,10 +4,14 @@ import { RSI } from 'technicalindicators';
 import { format, parse, subDays } from 'date-fns';
 import { query } from './db';
 
-export async function computeMomentumData(
+yahooFinance.suppressNotices(['yahooSurvey']);
+
+export async function computeMomentumData(  
   startDateStr: string = format(subDays(new Date(), 180), 'yyyy-MM-dd'),
   endDateStr: string = format(new Date(), 'yyyy-MM-dd')
 ): Promise<void> {
+  const skippedTickers: { ticker: string; reason: string }[] = [];
+
   try {
     const currentDate = format(new Date(), 'yyyy-MM-dd');
     const startDate = parse(startDateStr, 'yyyy-MM-dd', new Date());
@@ -77,7 +81,8 @@ export async function computeMomentumData(
         `, [ticker, startDateStr, endDateStr]);
 
         if (series.length < numDays * 0.9) {
-          console.log(`Skipping ${ticker}: incomplete data (${series.length}/${numDays})`);
+          // console.log(`Skipping ${ticker}: incomplete data (${series.length}/${numDays})`);
+          skippedTickers.push({ ticker, reason: `incomplete data (${series.length}/${numDays})` });
           continue;
         }
 
@@ -134,7 +139,8 @@ export async function computeMomentumData(
         const pbr = summary.defaultKeyStatistics?.priceToBook ?? null;
 
         if (revenueGrowth === null || debtToEquity === null || pbr === null) {
-          console.log(`Skipping ${ticker}: missing fundamentals`);
+          // console.log(`Skipping ${ticker}: missing fundamentals`);
+          skippedTickers.push({ ticker, reason: `missing fundamentals` });
           continue;
         }
 
@@ -164,6 +170,12 @@ export async function computeMomentumData(
           avg_volume, sortino, returnRate, rsi, revenueGrowth,
           debtToEquity, pbr, sixMonthChange
         ]);
+
+        if (skippedTickers.length > 0) {
+          console.log(`Skipped ${skippedTickers.length} tickers:`);
+          skippedTickers.forEach(({ ticker, reason }) => console.log(`- ${ticker}: ${reason}`));
+        }
+        console.log('Completed momentum data computation');
       } catch (error) {
         console.error(`Error processing ${ticker}:`, error);
       }

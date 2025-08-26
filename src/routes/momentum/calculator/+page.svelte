@@ -20,7 +20,20 @@
       });
       const data = await response.json();
       if (response.ok) {
-        results = data.data;
+        // Convert numeric fields from strings to numbers
+        results = data.data.map((row: any) => ({
+          ...row,
+          first_close: parseFloat(row.first_close),
+          last_close: parseFloat(row.last_close),
+          avg_volume: parseFloat(row.avg_volume),
+          sortino_ratio: parseFloat(row.sortino_ratio),
+          return_rate: parseFloat(row.return_rate),
+          rsi: parseFloat(row.rsi),
+          revenue_growth: parseFloat(row.revenue_growth),
+          debt_to_equity: parseFloat(row.debt_to_equity),
+          pbr: parseFloat(row.pbr),
+          six_month_change: parseFloat(row.six_month_change),
+        }));
       } else {
         error = data.error || 'Failed to fetch data';
       }
@@ -102,14 +115,14 @@
               <td class="p-2">{row.last_date}</td>
               <td class="p-2">{row.first_close.toFixed(4)}</td>
               <td class="p-2">{row.last_close.toFixed(4)}</td>
-              <td class="p-2">{row.avg_volume.toLocaleString()}</td>
+              <td class="p-2">{Math.round(row.avg_volume).toLocaleString()}</td>
               <td class="p-2">{row.sortino_ratio.toFixed(4)}</td>
               <td class="p-2">{(row.return_rate * 100).toFixed(2)}%</td>
               <td class="p-2">{row.rsi.toFixed(2)}</td>
               <td class="p-2">{(row.revenue_growth * 100).toFixed(2)}%</td>
               <td class="p-2">{row.debt_to_equity.toFixed(2)}</td>
               <td class="p-2">{row.pbr.toFixed(2)}</td>
-              <td class="p-2">{row.six_month_change}%</td>
+              <td class="p-2">{row.six_month_change.toFixed(2)}%</td>
             </tr>
           {/each}
         </tbody>
