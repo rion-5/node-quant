@@ -80,6 +80,14 @@
       class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 disabled:bg-gray-400"
     >
       {loading ? 'Loading...' : 'Compute and Fetch Data'}
+      {#if loading}
+        <div class="flex justify-center">
+          <svg class="animate-spin h-5 w-5 text-blue-600" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path>
+          </svg>
+        </div>
+      {/if}
     </button>
   </form>
 

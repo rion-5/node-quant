@@ -1,115 +1,87 @@
+<!-- src/routes/+page.svelte -->
 <script lang="ts">
   import { onMount } from 'svelte';
-  import type { HistoricalQuote } from '$lib/types';
+  import { fetchIndicatorData, fetchFredData } from '$lib/api';
 
-  let ticker = '';
-  let from = '';
-  let to = '';
-  let data: HistoricalQuote[] = [];
-  let error = '';
-  let loading = false;
+  // 타입 정의
+  interface IndicatorAlpha {
+    name: string;
+    symbol: string;
+    type: 'alpha';
+  }
+  interface IndicatorFred {
+    name: string;
+    seriesId: string;
+    type: 'fred';
+  }
+  type Indicator = IndicatorAlpha | IndicatorFred;
 
-  // 오늘 날짜와 기본 기간 설정
-  onMount(() => {
-    const today = new Date();
-    to = today.toISOString().split('T')[0]; // 오늘: YYYY-MM-DD
-    const oneMonthAgo = new Date();
-    oneMonthAgo.setMonth(today.getMonth() - 1);
-    from = oneMonthAgo.toISOString().split('T')[0]; // 1개월 전: YYYY-MM-DD
-  });
+  // 데이터 타입
+  interface ChartDataPoint {
+    date: Date;
+    value: number;
+  }
 
-  async function fetchStockData() {
-    if (!ticker || !from || !to) {
-      error = 'Please enter a valid ticker and date range';
-      return;
-    }
+  let chartsData: Record<string, ChartDataPoint[]> = {};
+  const indicators: Indicator[] = [
+    // { name: '달러원환율', symbol: 'FX:USDKRW', type: 'alpha' },
+    { name: '미국 소비자물가지수', seriesId: 'CPIAUCSL', type: 'fred' },
+    // { name: '미국실업률', seriesId: 'UNRATE', type: 'fred' },
+    // { name: '미국 금리변동', seriesId: 'FEDFUNDS', type: 'fred' },
+    // { name: '금 가격 변동', symbol: 'GOLD', type: 'alpha' },
+    // { name: '유가변동', symbol: 'WTI', type: 'alpha' },
+    // { name: '나스닥 변동', symbol: 'IXIC', type: 'alpha' },
+    // { name: 'VIX 변동성 지수', symbol: 'VIX', type: 'alpha' },
+    // { name: 'S&P 500 지수 변동', symbol: 'SPX', type: 'alpha' },
+    // { name: '10년 만기 미국 국채 수익률', seriesId: 'GS10', type: 'fred' },
+    // { name: 'DXY (미 달러 인덱스)', symbol: 'DXY', type: 'alpha' },
+    // { name: '제조업 PMI', seriesId: 'NAPM', type: 'fred' },
+    // { name: 'GDP 성장률', seriesId: 'A191RL1Q225SBEA', type: 'fred' }
+  ];
 
-    loading = true;
-    error = '';
-
-    try {
-      const response = await fetch(`/api/stock-data/${ticker}/${from}/${to}`);
-      const result = await response.json();
-
-      if (result.success) {
-        data = result.data;
-      } else {
-        error = result.error || 'Failed to fetch data';
+  onMount(async () => {
+    for (const ind of indicators) {
+      try {
+        if (ind.type === 'alpha') {
+          chartsData[ind.name] = await fetchIndicatorData(ind.symbol);
+        } else if (ind.type === 'fred') {
+          chartsData[ind.name] = await fetchFredData(ind.seriesId);
+        }
+        chartsData = { ...chartsData }; // 강제로 반응성 트리거
+      } catch (error) {
+        console.error(`Error fetching data for ${ind.name}:`, error);
+        chartsData[ind.name] = []; // 에러 발생 시 빈 배열로 설정
+        chartsData = { ...chartsData };
       }
-    } catch (err) {
-      error = err instanceof Error ? err.message : 'An error occurred while fetching data';
-      console.error('Fetch error:', err); // 디버깅용
-    } finally {
-      loading = false;
     }
-  }
-
-  function handleSubmit(event: Event) {
-    event.preventDefault();
-    fetchStockData();
-  }
+  });
 </script>
-
-<div class="container mx-auto p-4">
-  <h1 class="text-2xl font-bold mb-4">Stock Data Viewer</h1>
-
-  <form on:submit={handleSubmit} class="mb-6">
-    <div class="flex flex-col sm:flex-row gap-4">
-      <input
-        type="text"
-        bind:value={ticker}
-        placeholder="Enter ticker (e.g., TSLA)"
-        class="border p-2 rounded w-full sm:w-1/3 focus:outline-none focus:ring-2 focus:ring-blue-500"
-      />
-      <input
-        type="date"
-        bind:value={from}
-        class="border p-2 rounded w-full sm:w-1/4 focus:outline-none focus:ring-2 focus:ring-blue-500"
-      />
-      <input
-        type="date"
-        bind:value={to}
-        class="border p-2 rounded w-full sm:w-1/4 focus:outline-none focus:ring-2 focus:ring-blue-500"
-      />
-      <button
-        type="submit"
-        disabled={loading}
-        class="bg-blue-500 text-white p-2 rounded hover:bg-blue-600 disabled:bg-gray-400"
-      >
-        {loading ? 'Loading...' : 'Fetch Data'}
-      </button>
-    </div>
-    {#if error}
-      <p class="text-red-500 mt-2">{error}</p>
-    {/if}
-  </form>
-
-  {#if data.length > 0}
-    <div class="overflow-x-auto">
-      <table class="min-w-full border border-gray-300">
-        <thead>
-          <tr class="bg-gray-100">
-            <th class="border border-gray-300 p-2 text-left">Date</th>
-            <th class="border border-gray-300 p-2 text-right">Open</th>
-            <th class="border border-gray-300 p-2 text-right">High</th>
-            <th class="border border-gray-300 p-2 text-right">Low</th>
-            <th class="border border-gray-300 p-2 text-right">Close</th>
-            <th class="border border-gray-300 p-2 text-right">Volume</th>
-          </tr>
-        </thead>
-        <tbody>
-          {#each data as row}
-            <tr class="hover:bg-gray-50">
-              <td class="border border-gray-300 p-2">{row.date.toLocaleDateString()}</td>
-              <td class="border border-gray-300 p-2 text-right">{row.open.toFixed(2)}</td>
-              <td class="border border-gray-300 p-2 text-right">{row.high.toFixed(2)}</td>
-              <td class="border border-gray-300 p-2 text-right">{row.low.toFixed(2)}</td>
-              <td class="border border-gray-300 p-2 text-right">{row.close.toFixed(2)}</td>
-              <td class="border border-gray-300 p-2 text-right">{row.volume.toLocaleString()}</td>
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 p-4">
+  {#each indicators as ind}
+    <div class="bg-white p-4 rounded shadow">
+      <h2 class="text-lg font-bold mb-2">{ind.name} (3개월 데이터)</h2>
+      {#if chartsData[ind.name]?.length}
+        <table class="w-full text-sm">
+          <thead>
+            <tr>
+              <th class="text-left p-2">Date</th>
+              <th class="text-right p-2">Value</th>
             </tr>
-          {/each}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {#each chartsData[ind.name] as point}
+              <tr>
+                <td class="p-2">{point.date.toISOString().split('T')[0]}</td>
+                <td class="text-right p-2">{point.value.toFixed(2)}</td>
+              </tr>
+            {/each}
+          </tbody>
+        </table>
+      {:else}
+        <div class="text-center p-4">
+          {chartsData[ind.name] ? 'No data available' : 'Loading...'}
+        </div>
+      {/if}
     </div>
-  {/if}
+  {/each}
 </div>

@@ -6,7 +6,7 @@ import { format, subDays, isWeekend, addDays, parseISO } from 'date-fns';
 
 // 공지 메시지 억제
 yahooFinance.suppressNotices(['ripHistorical']);
-
+yahooFinance.suppressNotices(['yahooSurvey']);
 // 인터페이스 정의
 interface StockInfo {
   ticker: string;

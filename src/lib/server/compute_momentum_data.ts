@@ -5,6 +5,7 @@ import { format, parse, subDays } from 'date-fns';
 import { query } from './db';
 
 yahooFinance.suppressNotices(['yahooSurvey']);
+yahooFinance.suppressNotices(['ripHistorical']);
 
 export async function computeMomentumData(  
   startDateStr: string = format(subDays(new Date(), 180), 'yyyy-MM-dd'),

@@ -10,13 +10,15 @@
       <h1 class="text-xl font-bold">Stock Analysis</h1>
       <ul class="flex space-x-4">
         <li>
-          <a
-            href="/momentum/calculator"
+          <a href="/momentum/calculator"
             class="hover:underline {$page.url.pathname === '/momentum/calculator' ? 'font-bold' : ''}"
           >
             Momentum
           </a>
         </li>
+        <li><a href="/momentum/ranking"
+          class="hover:underline {$page.url.pathname === '/momentum/ranking' ? 'font-bold' : ''}" >
+          Momentum Ranking</a></li>
         <!-- Add other menu items here if needed -->
       </ul>
     </div>
