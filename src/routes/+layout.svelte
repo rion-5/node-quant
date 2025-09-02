@@ -10,6 +10,23 @@
       <h1 class="text-xl font-bold">Stock Analysis</h1>
       <ul class="flex space-x-4">
         <li>
+          <a href="/"
+            class="hover:underline {$page.url.pathname === '/' ? 'font-bold' : ''}"
+          >
+            Dashboard
+          </a>
+        </li>
+                <li>
+          <a href="/fred-plot"
+            class="hover:underline {$page.url.pathname === '/fred-plot' ? 'font-bold' : ''}"
+          >
+            Fred
+          </a>
+        </li>
+        <li><a href="/alpha-vantage-plot"
+          class="hover:underline {$page.url.pathname === '/alpha-vantage-plot' ? 'font-bold' : ''}" >
+          Alpha-Vantage</a></li>
+        <li>
           <a href="/momentum/calculator"
             class="hover:underline {$page.url.pathname === '/momentum/calculator' ? 'font-bold' : ''}"
           >
