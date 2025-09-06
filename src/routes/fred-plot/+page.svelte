@@ -33,7 +33,8 @@
     { id: 'FEDFUNDS', title: '연방기금금리 (%)', color: '#f59e0b' },
     { id: 'GS10', title: '10년 만기 미국 국채 수익률', color: '#06b6d4' },
     { id: 'GDP', title: '실질 GDP', color: '#3b82f6' },
-    { id: 'PMI', title: '제조업 PMI', color: '#8b5cf6' }
+    // { id: 'NAPM', title: '제조업 PMI', color: '#8b5cf6' }
+    { id: 'A191RL1Q225SBEA', title: 'GDP 성장률', color: '#8b5cf6'}
   ];
 
   async function fetchFredData(seriesId: string): Promise<FredResponse> {
