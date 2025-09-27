@@ -3,92 +3,157 @@ import type { RequestHandler } from '@sveltejs/kit';
 import { query } from '$lib/server/db';
 import { json } from '@sveltejs/kit';
 
+interface MomentumRawData {
+  ticker: string;
+  return_rate_1m: number;
+  return_rate_3m: number;
+  return_rate_6m: number;
+  sortino_ratio_1m: number;
+  sortino_ratio_3m: number;
+  sortino_ratio_6m: number;
+  rsi: number;
+  revenue_growth: number;
+  debt_to_equity: number;
+  pbr: number;
+  first_date_1m: string;
+  last_date_1m: string;
+  first_date_3m: string;
+  last_date_3m: string;
+  first_date_6m: string;
+  last_date_6m: string;
+  first_close_1m: number;
+  last_close_1m: number;
+  first_close_3m: number;
+  last_close_3m: number;
+  first_close_6m: number;
+  last_close_6m: number;
+  avg_volume_1m: number;
+  avg_volume_3m: number;
+  avg_volume_6m: number;
+  score_1m: number;
+  score_3m: number;
+  score_6m: number;
+  final_momentum_score: number;
+  created_at: string;
+  updated_at: string;
+}
+
 export const POST: RequestHandler = async ({ request }) => {
   try {
-    const { queryDate, weights } = await request.json();
-    if (!queryDate || !weights) {
-      return json({ error: 'queryDate and weights required' }, { status: 400 });
+    const { queryDate } = await request.json();
+
+    if (!queryDate) {
+      return json({ error: 'queryDate is required' }, { status: 400 });
     }
 
-    const data = await query<{
-      ticker: string;
-      return_rate: number;
-      sortino_ratio: number;
-      rsi: number;
-      revenue_growth: number;
-      debt_to_equity: number;
-      pbr: number;
-      first_date: string;
-      last_date: string;
-      first_close: number;
-      last_close: number;
-      avg_volume: number;
-      six_month_change: number;
-    }>(`
-      SELECT *
+    // 해당 날짜의 모든 데이터 조회
+    const data = await query<MomentumRawData>(`
+      SELECT 
+        ticker,
+        return_rate_1m,
+        return_rate_3m,
+        return_rate_6m,
+        sortino_ratio_1m,
+        sortino_ratio_3m,
+        sortino_ratio_6m,
+        rsi,
+        revenue_growth,
+        debt_to_equity,
+        pbr,
+        first_date_1m,
+        last_date_1m,
+        first_date_3m,
+        last_date_3m,
+        first_date_6m,
+        last_date_6m,
+        first_close_1m,
+        last_close_1m,
+        first_close_3m,
+        last_close_3m,
+        first_close_6m,
+        last_close_6m,
+        avg_volume_1m,
+        avg_volume_3m,
+        avg_volume_6m,
+        score_1m,
+        score_3m,
+        score_6m,
+        final_momentum_score,
+        created_at,
+        updated_at
       FROM momentum_data
       WHERE query_date = $1
+      AND final_momentum_score IS NOT NULL
+      ORDER BY final_momentum_score DESC
+      LIMIT 100
     `, [queryDate]);
 
     if (data.length === 0) {
-      return json({ error: 'No data for selected date' }, { status: 404 });
+      return json({ error: 'No data found for the selected date' }, { status: 404 });
     }
 
-    // 문자열을 숫자로 변환
-    const parsedData = data.map(row => ({
-      ...row,
-      return_rate: parseFloat(row.return_rate as any),
-      sortino_ratio: parseFloat(row.sortino_ratio as any),
-      rsi: parseFloat(row.rsi as any),
-      revenue_growth: parseFloat(row.revenue_growth as any),
-      debt_to_equity: parseFloat(row.debt_to_equity as any),
-      pbr: parseFloat(row.pbr as any),
-      first_close: parseFloat(row.first_close as any),
-      last_close: parseFloat(row.last_close as any),
-      avg_volume: parseFloat(row.avg_volume as any),
-      six_month_change: parseFloat(row.six_month_change as any)
+    // 숫자 변환 및 데이터 정리
+    const processedData = data.map(row => ({
+      ticker: row.ticker,
+      // 1개월 데이터
+      return_rate_1m: Number(row.return_rate_1m) || 0,
+      sortino_ratio_1m: Number(row.sortino_ratio_1m) || 0,
+      first_date_1m: row.first_date_1m,
+      last_date_1m: row.last_date_1m,
+      first_close_1m: Number(row.first_close_1m) || 0,
+      last_close_1m: Number(row.last_close_1m) || 0,
+      avg_volume_1m: Number(row.avg_volume_1m) || 0,
+      score_1m: Number(row.score_1m) || 0,
+      // 3개월 데이터
+      return_rate_3m: Number(row.return_rate_3m) || 0,
+      sortino_ratio_3m: Number(row.sortino_ratio_3m) || 0,
+      first_date_3m: row.first_date_3m,
+      last_date_3m: row.last_date_3m,
+      first_close_3m: Number(row.first_close_3m) || 0,
+      last_close_3m: Number(row.last_close_3m) || 0,
+      avg_volume_3m: Number(row.avg_volume_3m) || 0,
+      score_3m: Number(row.score_3m) || 0,
+      // 6개월 데이터
+      return_rate_6m: Number(row.return_rate_6m) || 0,
+      sortino_ratio_6m: Number(row.sortino_ratio_6m) || 0,
+      first_date_6m: row.first_date_6m,
+      last_date_6m: row.last_date_6m,
+      first_close_6m: Number(row.first_close_6m) || 0,
+      last_close_6m: Number(row.last_close_6m) || 0,
+      avg_volume_6m: Number(row.avg_volume_6m) || 0,
+      score_6m: Number(row.score_6m) || 0,
+      // 기본 지표
+      rsi: Number(row.rsi) || 50,
+      revenue_growth: Number(row.revenue_growth) || 0,
+      debt_to_equity: Number(row.debt_to_equity) || 1,
+      pbr: Number(row.pbr) || 1.5,
+      final_momentum_score: Number(row.final_momentum_score) || 0,
+      created_at: row.created_at,
+      updated_at: row.updated_at
     }));
 
-    // 각 지표 min/max 계산
-    const minMax = {
-      return_rate: { min: Math.min(...parsedData.map(r => r.return_rate)), max: Math.max(...parsedData.map(r => r.return_rate)) },
-      sortino_ratio: { min: Math.min(...parsedData.map(r => r.sortino_ratio)), max: Math.max(...parsedData.map(r => r.sortino_ratio)) },
-      revenue_growth: { min: Math.min(...parsedData.map(r => r.revenue_growth)), max: Math.max(...parsedData.map(r => r.revenue_growth)) },
-      debt_to_equity: { min: Math.min(...parsedData.map(r => r.debt_to_equity)), max: Math.max(...parsedData.map(r => r.debt_to_equity)) },
-      pbr: { min: Math.min(...parsedData.map(r => r.pbr)), max: Math.max(...parsedData.map(r => r.pbr)) },
-      rsi: { min: 30, max: 70 } // RSI 특수: 30-70 매핑
+    // 통계 정보 계산
+    const stats = {
+      total_count: processedData.length,
+      avg_final_score: processedData.reduce((sum, r) => sum + r.final_momentum_score, 0) / processedData.length,
+      avg_return_1m: processedData.reduce((sum, r) => sum + r.return_rate_1m, 0) / processedData.length,
+      avg_return_3m: processedData.reduce((sum, r) => sum + r.return_rate_3m, 0) / processedData.length,
+      avg_return_6m: processedData.reduce((sum, r) => sum + r.return_rate_6m, 0) / processedData.length,
+      top_10_avg_return_6m: processedData.slice(0, 10).reduce((sum, r) => sum + r.return_rate_6m, 0) / Math.min(10, processedData.length),
+      top_score: processedData.length > 0 ? processedData[0].final_momentum_score : 0
     };
 
-    // 정규화 함수
-    const normalizePositive = (x: number, min: number, max: number) => (max - min) > 0 ? (x - min) / (max - min) : 0;
-    const normalizeNegative = (x: number, min: number, max: number) => 1 - normalizePositive(x, min, max);
-    const normalizeRSI = (x: number) => Math.min((x - 30) / 40, 1);
+    return json({
+      data: processedData,
+      stats,
+      query_date: queryDate
+    }, { status: 200 });
 
-    // 정규화 및 점수 계산
-    const ranked = parsedData.map(row => {
-      const norm = {
-        return_rate: normalizePositive(row.return_rate, minMax.return_rate.min, minMax.return_rate.max),
-        sortino_ratio: normalizePositive(row.sortino_ratio, minMax.sortino_ratio.min, minMax.sortino_ratio.max),
-        revenue_growth: normalizePositive(row.revenue_growth, minMax.revenue_growth.min, minMax.revenue_growth.max),
-        debt_to_equity: normalizeNegative(row.debt_to_equity, minMax.debt_to_equity.min, minMax.debt_to_equity.max),
-        pbr: normalizeNegative(row.pbr, minMax.pbr.min, minMax.pbr.max),
-        rsi: normalizeRSI(row.rsi)
-      };
-
-      const score = 
-        norm.return_rate * weights.return_rate +
-        norm.sortino_ratio * weights.sortino_ratio +
-        norm.revenue_growth * weights.revenue_growth +
-        norm.debt_to_equity * weights.debt_to_equity +
-        norm.pbr * weights.pbr +
-        norm.rsi * weights.rsi;
-
-      return { ...row, score, norm };
-    }).sort((a, b) => b.score - a.score);
-
-    return json({ data: ranked }, { status: 200 });
   } catch (error) {
-    console.error('API error:', error);
-    return json({ error: 'Failed to get ranking' }, { status: 500 });
+    console.error('Momentum ranking API error:', error);
+    return json({
+      error: 'Failed to get momentum ranking',
+      details: error instanceof Error ? error.message : 'Unknown error'
+    }, { status: 500 });
   }
 };
