@@ -86,12 +86,12 @@ async function calculatePeriodMomentum(
     const sortinoRatio = calculateSortinoRatio(dailyReturns);
 
     const volumes = series.map(d => {
-      const volume = Number(d.volume);
-      if (isNaN(volume) || volume < 0) {
-        console.warn(`Invalid volume for ${ticker}: ${d.volume}, using 0`);
+      const dollarVolume = Number(d.volume) * d.close;
+      if (isNaN(dollarVolume) || dollarVolume < 0) {
+        console.warn(`Invalid dollar volume for ${ticker}: volume=${d.volume}, close=${d.close}, using 0`);
         return 0;
       }
-      return volume;
+      return dollarVolume;
     });
     const totalVolume = volumes.reduce((sum, v) => sum + Math.round(v), 0);
     const rawAvgVolume = totalVolume / series.length;
@@ -151,18 +151,18 @@ export async function computeMomentumData(
 
     // Fetch candidate tickers with debugging
     const candidates = await query<{ ticker: string; avg_volume: number; min_volume: number; max_volume: number }>(`
-      SELECT ticker, 
-             AVG(volume) as avg_volume,
-             MIN(volume) as min_volume,
-             MAX(volume) as max_volume
-      FROM ohlc
-      WHERE date BETWEEN $1 AND $2
-      AND close BETWEEN 50 AND 2000
-      AND volume >= 10000000
-      GROUP BY ticker
-      HAVING COUNT(*) >= $3 * 0.9
-      ORDER BY avg_volume DESC
-    `, [startDateStr, endDateStr, numDays]);
+  SELECT ticker, 
+         AVG(volume * close) as avg_volume,
+         MIN(volume * close) as min_volume,
+         MAX(volume * close) as max_volume
+  FROM ohlc
+  WHERE date BETWEEN $1 AND $2
+  AND close BETWEEN 50 AND 2000
+  AND (volume * close) >= 1000000000
+  GROUP BY ticker
+  HAVING COUNT(*) >= $3 * 0.9
+  ORDER BY avg_volume DESC
+`, [startDateStr, endDateStr, numDays]);
 
     console.log('Volume statistics for top candidates:');
     candidates.slice(0, 5).forEach(c => {
@@ -293,7 +293,7 @@ export async function computeMomentumData(
           // 매출성장률: -50% ~ +50% 범위로 정규화
           const normalizedRevGrowth = Math.max(-0.5, Math.min(0.5, revenueGrowth));
           // RSI: 0-100을 0-1로 정규화
-          const normalizedRsi = Math.max(0, Math.min(100, rsi)) / 100;
+          const normalizedRsi = (100 - rsi) / 100;
           // 부채비율: 역수로 변환 후 0-1로 정규화
           const normalizedDebt = Math.min(1, 1 / Math.max(0.1, debtToEquity));
           // PBR: 역수로 변환 후 0-1로 정규화

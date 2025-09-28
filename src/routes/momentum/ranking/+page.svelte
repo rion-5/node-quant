@@ -404,7 +404,7 @@
 				<div class="border-b border-gray-200 px-6 py-4">
 					<h2 class="text-xl font-semibold text-gray-900">상위 10개 종목 상세 정보</h2>
 					<p class="mt-1 text-sm text-gray-600">
-						각 기간별 소르티노 비율과 거래량 정보를 포함합니다.
+						각 기간별 소르티노 비율과 거래금액 정보를 포함합니다.
 					</p>
 				</div>
 
@@ -434,15 +434,15 @@
 								>
 								<th
 									class="px-4 py-3 text-left text-xs font-medium tracking-wider text-gray-500 uppercase"
-									>1개월 평균거래량</th
+									>1개월 평균거래금액</th
 								>
 								<th
 									class="px-4 py-3 text-left text-xs font-medium tracking-wider text-gray-500 uppercase"
-									>3개월 평균거래량</th
+									>3개월 평균거래금액</th
 								>
 								<th
 									class="px-4 py-3 text-left text-xs font-medium tracking-wider text-gray-500 uppercase"
-									>6개월 평균거래량</th
+									>6개월 평균거래금액</th
 								>
 							</tr>
 						</thead>
