@@ -106,8 +106,8 @@ async function fetchAndSaveOHLCForDate(ticker: string, date: string) {
     let noDataCount = currentStock[0]?.no_data_count || 0;
     noDataCount += 1;
     const active = noDataCount < 10;
-
-    if (error.message.includes('No data found, symbol may be delisted')) {
+    const e = error as Error;
+    if (e.message.includes('No data found, symbol may be delisted')) {
       console.log(`Symbol ${ticker} may be delisted`);
     } else {
       console.error(`Error fetching/saving ${ticker}:`, error);
@@ -177,8 +177,8 @@ async function fetchAndSaveOHLCForRange(ticker: string, startDate: string, endDa
     let noDataCount = currentStock[0]?.no_data_count || 0;
     noDataCount += 1;
     const active = noDataCount < 10;
-
-    if (error.message.includes('No data found, symbol may be delisted')) {
+    const e = error as Error;
+    if (e.message.includes('No data found, symbol may be delisted')) {
       console.log(`Symbol ${ticker} may be delisted`);
     } else {
       console.error(`Error fetching/saving ${ticker}:`, error);
