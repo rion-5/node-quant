@@ -11,7 +11,9 @@
 	let error: string | null = null;
 	let sortBy = 'final_momentum_score';
 	let sortOrder = 'desc';
-
+	let minPrice = 50;
+	let maxPrice = 2000;
+	let minTradingAmount = 1000000000; // 기본 10억
 	interface MomentumData {
 		ticker: string;
 		first_date_1m: string;
@@ -97,7 +99,7 @@
 			const response = await fetch('/api/compute-momentum', {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ startDate, endDate })
+				body: JSON.stringify({ startDate, endDate, minPrice, maxPrice, minTradingAmount })
 			});
 
 			const data = await response.json();
@@ -172,6 +174,45 @@
 						bind:value={endDate}
 						class="w-full rounded-md border-gray-300 p-2 shadow-sm focus:border-blue-500 focus:ring-blue-500"
 						disabled={loading}
+					/>
+				</div>
+			</div>
+			<div class="space-y-4">
+				<div class="flex space-x-4">
+					<div class="flex-1">
+						<label for="minPrice" class="block text-sm font-medium text-gray-700">주가 최소</label>
+						<input
+							type="number"
+							id="minPrice"
+							bind:value={minPrice}
+							class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+							min="0"
+							step="0.01"
+						/>
+					</div>
+					<div class="flex-1">
+						<label for="maxPrice" class="block text-sm font-medium text-gray-700">주가 최대</label>
+						<input
+							type="number"
+							id="maxPrice"
+							bind:value={maxPrice}
+							class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+							min="0"
+							step="0.01"
+						/>
+					</div>
+				</div>
+				<div>
+					<label for="minTradingAmount" class="block text-sm font-medium text-gray-700"
+						>거래금액 하한 (달러)</label
+					>
+					<input
+						type="number"
+						id="minTradingAmount"
+						bind:value={minTradingAmount}
+						class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+						min="0"
+						step="1000000"
 					/>
 				</div>
 			</div>

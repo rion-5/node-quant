@@ -41,10 +41,13 @@ interface MomentumDataResult {
 
 export const POST: RequestHandler = async ({ request }) => {
 	try {
-		const { startDate, endDate } = await request.json();
-		
+		const { startDate, endDate, minPrice = 50, maxPrice = 2000, minTradingAmount = 1000000000 } = await request.json();
+
 		if (!startDate || !endDate) {
 			return json({ error: 'startDate and endDate are required' }, { status: 400 });
+		}
+		if (minPrice >= maxPrice || minPrice < 0 || maxPrice < 0 || minTradingAmount < 0) {
+			return json({ error: 'Invalid price or trading amount conditions' }, { status: 400 });
 		}
 
 		// Validate date format (yyyy-MM-dd)
@@ -63,56 +66,23 @@ export const POST: RequestHandler = async ({ request }) => {
 		console.log(`Starting momentum computation for period: ${startDate} to ${endDate}`);
 
 		// Run the momentum computation
-		await computeMomentumData(startDate, endDate);
+		await computeMomentumData(startDate, endDate, minPrice, maxPrice, minTradingAmount);
 
 		console.log('Momentum computation completed. Fetching results...');
 
 		// Fetch the results from the database with proper error handling
 		const results = await query<MomentumDataResult>(`
-			SELECT 
-				ticker,
-				first_date_1m,
-				last_date_1m,
-				first_date_3m,
-				last_date_3m,
-				first_date_6m,
-				last_date_6m,
-				first_close_1m,
-				last_close_1m,
-				first_close_3m,
-				last_close_3m,
-				first_close_6m,
-				last_close_6m,
-				return_rate_1m,
-				return_rate_3m,
-				return_rate_6m,
-				sortino_ratio_1m,
-				sortino_ratio_3m,
-				sortino_ratio_6m,
-				avg_volume_1m,
-				avg_volume_3m,
-				avg_volume_6m,
-				rsi,
-				revenue_growth,
-				debt_to_equity,
-				pbr,
-				score_1m,
-				score_3m,
-				score_6m,
-				final_momentum_score,
-				created_at,
-				updated_at
-			FROM momentum_data
-			WHERE query_date = $1
-			AND final_momentum_score IS NOT NULL
-			ORDER BY final_momentum_score DESC
-			LIMIT 100
-		`, [endDate]);
+        SELECT * FROM momentum_data
+        WHERE query_date = $1 AND min_price = $2 AND max_price = $3 AND min_trading_amount = $4
+        AND final_momentum_score IS NOT NULL
+        ORDER BY final_momentum_score DESC
+        LIMIT 100
+    `, [endDate, minPrice, maxPrice, minTradingAmount]);
 
 		console.log(`Found ${results.length} momentum results`);
 
 		if (results.length === 0) {
-			return json({ 
+			return json({
 				error: 'No momentum data found for the specified date range. Please check if the computation was successful.',
 				data: []
 			}, { status: 200 });
@@ -209,28 +179,28 @@ export const POST: RequestHandler = async ({ request }) => {
 
 		console.log(`Returning ${finalResults.length} processed momentum results`);
 
-		return json({ 
+		return json({
 			data: finalResults,
 			summary: {
 				total_count: finalResults.length,
 				query_date: endDate,
 				date_range: `${startDate} to ${endDate}`,
 				top_score: finalResults.length > 0 ? finalResults[0].final_momentum_score : 0,
-				avg_score: finalResults.length > 0 ? 
+				avg_score: finalResults.length > 0 ?
 					finalResults.reduce((sum, r) => sum + (r.final_momentum_score || 0), 0) / finalResults.length : 0
 			}
 		}, { status: 200 });
 
 	} catch (error) {
 		console.error('API error:', error);
-		
+
 		// 더 자세한 에러 정보 제공
 		let errorMessage = 'Failed to compute momentum data';
 		let statusCode = 500;
 
 		if (error instanceof Error) {
 			errorMessage = error.message;
-			
+
 			// 특정 에러 타입에 따른 상태 코드 조정
 			if (error.message.includes('connection') || error.message.includes('database')) {
 				statusCode = 503; // Service Unavailable
@@ -241,7 +211,7 @@ export const POST: RequestHandler = async ({ request }) => {
 			}
 		}
 
-		return json({ 
+		return json({
 			error: errorMessage,
 			timestamp: new Date().toISOString(),
 			data: []

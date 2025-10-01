@@ -40,9 +40,9 @@ interface MomentumRawData {
 
 export const POST: RequestHandler = async ({ request }) => {
   try {
-    const { queryDate } = await request.json();
+    const { queryDate, minPrice, maxPrice, minTradingAmount } = await request.json();
 
-    if (!queryDate) {
+    if (!queryDate || minPrice === undefined || maxPrice === undefined || minTradingAmount === undefined) {
       return json({ error: 'queryDate is required' }, { status: 400 });
     }
 
@@ -83,10 +83,13 @@ export const POST: RequestHandler = async ({ request }) => {
         updated_at
       FROM momentum_data
       WHERE query_date = $1
+      AND min_price = $2
+      AND max_price = $3
+      AND min_trading_amount = $4
       AND final_momentum_score IS NOT NULL
       ORDER BY final_momentum_score DESC
       LIMIT 100
-    `, [queryDate]);
+    `, [queryDate, minPrice, maxPrice, minTradingAmount]);
 
     if (data.length === 0) {
       return json({ error: 'No data found for the selected date' }, { status: 404 });
@@ -146,7 +149,10 @@ export const POST: RequestHandler = async ({ request }) => {
     return json({
       data: processedData,
       stats,
-      query_date: queryDate
+      query_date: queryDate,
+      min_price: minPrice,
+      max_price: maxPrice,
+      min_trading_amount: minTradingAmount
     }, { status: 200 });
 
   } catch (error) {

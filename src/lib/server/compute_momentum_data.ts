@@ -116,7 +116,10 @@ async function calculatePeriodMomentum(
 
 export async function computeMomentumData(
   startDateStr: string = format(subDays(new Date(), 180), 'yyyy-MM-dd'),
-  endDateStr: string = format(new Date(), 'yyyy-MM-dd')
+  endDateStr: string = format(new Date(), 'yyyy-MM-dd'),
+  minPrice: number = 50,
+  maxPrice: number = 2000,
+  minTradingAmount: number = 1000000000
 ): Promise<void> {
   const skippedTickers: { ticker: string; reason: string }[] = [];
 
@@ -151,18 +154,18 @@ export async function computeMomentumData(
 
     // Fetch candidate tickers with debugging
     const candidates = await query<{ ticker: string; avg_volume: number; min_volume: number; max_volume: number }>(`
-  SELECT ticker, 
-         AVG(volume * close) as avg_volume,
-         MIN(volume * close) as min_volume,
-         MAX(volume * close) as max_volume
-  FROM ohlc
-  WHERE date BETWEEN $1 AND $2
-  AND close BETWEEN 50 AND 2000
-  AND (volume * close) >= 1000000000
-  GROUP BY ticker
-  HAVING COUNT(*) >= $3 * 0.9
-  ORDER BY avg_volume DESC
-`, [startDateStr, endDateStr, numDays]);
+        SELECT ticker, 
+               AVG(volume * close) as avg_volume,
+               MIN(volume * close) as min_volume,
+               MAX(volume * close) as max_volume
+        FROM ohlc
+        WHERE date BETWEEN $1 AND $2
+        AND close BETWEEN $3 AND $4
+        AND (volume * close) >= $5
+        GROUP BY ticker
+        HAVING COUNT(*) >= $6 * 0.9
+        ORDER BY avg_volume DESC
+    `, [startDateStr, endDateStr, minPrice, maxPrice, minTradingAmount, numDays]);
 
     console.log('Volume statistics for top candidates:');
     candidates.slice(0, 5).forEach(c => {
@@ -336,51 +339,52 @@ export async function computeMomentumData(
 
         // Save to database
         await query(`
-          INSERT INTO momentum_data (
-            query_date, ticker,
-            first_date_1m, last_date_1m, first_close_1m, last_close_1m,
-            return_rate_1m, sortino_ratio_1m, avg_volume_1m,
-            first_date_3m, last_date_3m, first_close_3m, last_close_3m,
-            return_rate_3m, sortino_ratio_3m, avg_volume_3m,
-            first_date_6m, last_date_6m, first_close_6m, last_close_6m,
-            return_rate_6m, sortino_ratio_6m, avg_volume_6m,
-            rsi, revenue_growth, debt_to_equity, pbr,
-            score_1m, score_3m, score_6m, final_momentum_score,
-            created_at, updated_at
-          )
-          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30, $31, $32, $33)
-          ON CONFLICT (query_date, ticker) DO UPDATE SET
-            first_date_1m = EXCLUDED.first_date_1m,
-            last_date_1m = EXCLUDED.last_date_1m,
-            first_close_1m = EXCLUDED.first_close_1m,
-            last_close_1m = EXCLUDED.last_close_1m,
-            return_rate_1m = EXCLUDED.return_rate_1m,
-            sortino_ratio_1m = EXCLUDED.sortino_ratio_1m,
-            avg_volume_1m = EXCLUDED.avg_volume_1m,
-            first_date_3m = EXCLUDED.first_date_3m,
-            last_date_3m = EXCLUDED.last_date_3m,
-            first_close_3m = EXCLUDED.first_close_3m,
-            last_close_3m = EXCLUDED.last_close_3m,
-            return_rate_3m = EXCLUDED.return_rate_3m,
-            sortino_ratio_3m = EXCLUDED.sortino_ratio_3m,
-            avg_volume_3m = EXCLUDED.avg_volume_3m,
-            first_date_6m = EXCLUDED.first_date_6m,
-            last_date_6m = EXCLUDED.last_date_6m,
-            first_close_6m = EXCLUDED.first_close_6m,
-            last_close_6m = EXCLUDED.last_close_6m,
-            return_rate_6m = EXCLUDED.return_rate_6m,
-            sortino_ratio_6m = EXCLUDED.sortino_ratio_6m,
-            avg_volume_6m = EXCLUDED.avg_volume_6m,
-            rsi = EXCLUDED.rsi,
-            revenue_growth = EXCLUDED.revenue_growth,
-            debt_to_equity = EXCLUDED.debt_to_equity,
-            pbr = EXCLUDED.pbr,
-            score_1m = EXCLUDED.score_1m,
-            score_3m = EXCLUDED.score_3m,
-            score_6m = EXCLUDED.score_6m,
-            final_momentum_score = EXCLUDED.final_momentum_score,
-            updated_at = EXCLUDED.updated_at
-        `, [
+  INSERT INTO momentum_data (
+    query_date, ticker,
+    first_date_1m, last_date_1m, first_close_1m, last_close_1m,
+    return_rate_1m, sortino_ratio_1m, avg_volume_1m,
+    first_date_3m, last_date_3m, first_close_3m, last_close_3m,
+    return_rate_3m, sortino_ratio_3m, avg_volume_3m,
+    first_date_6m, last_date_6m, first_close_6m, last_close_6m,
+    return_rate_6m, sortino_ratio_6m, avg_volume_6m,
+    rsi, revenue_growth, debt_to_equity, pbr,
+    score_1m, score_3m, score_6m, final_momentum_score,
+    created_at, updated_at,
+    min_price, max_price, min_trading_amount
+  )
+  VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30, $31, $32, $33, $34, $35, $36)
+  ON CONFLICT (query_date, ticker, min_price, max_price, min_trading_amount) DO UPDATE SET
+    first_date_1m = EXCLUDED.first_date_1m,
+    last_date_1m = EXCLUDED.last_date_1m,
+    first_close_1m = EXCLUDED.first_close_1m,
+    last_close_1m = EXCLUDED.last_close_1m,
+    return_rate_1m = EXCLUDED.return_rate_1m,
+    sortino_ratio_1m = EXCLUDED.sortino_ratio_1m,
+    avg_volume_1m = EXCLUDED.avg_volume_1m,
+    first_date_3m = EXCLUDED.first_date_3m,
+    last_date_3m = EXCLUDED.last_date_3m,
+    first_close_3m = EXCLUDED.first_close_3m,
+    last_close_3m = EXCLUDED.last_close_3m,
+    return_rate_3m = EXCLUDED.return_rate_3m,
+    sortino_ratio_3m = EXCLUDED.sortino_ratio_3m,
+    avg_volume_3m = EXCLUDED.avg_volume_3m,
+    first_date_6m = EXCLUDED.first_date_6m,
+    last_date_6m = EXCLUDED.last_date_6m,
+    first_close_6m = EXCLUDED.first_close_6m,
+    last_close_6m = EXCLUDED.last_close_6m,
+    return_rate_6m = EXCLUDED.return_rate_6m,
+    sortino_ratio_6m = EXCLUDED.sortino_ratio_6m,
+    avg_volume_6m = EXCLUDED.avg_volume_6m,
+    rsi = EXCLUDED.rsi,
+    revenue_growth = EXCLUDED.revenue_growth,
+    debt_to_equity = EXCLUDED.debt_to_equity,
+    pbr = EXCLUDED.pbr,
+    score_1m = EXCLUDED.score_1m,
+    score_3m = EXCLUDED.score_3m,
+    score_6m = EXCLUDED.score_6m,
+    final_momentum_score = EXCLUDED.final_momentum_score,
+    updated_at = EXCLUDED.updated_at
+`, [
           endDateStr, ticker,
           momentum1m.first_date, momentum1m.last_date, momentum1m.first_close, momentum1m.last_close,
           momentum1m.return_rate, momentum1m.sortino_ratio, momentum1m.avg_volume,
@@ -390,7 +394,8 @@ export async function computeMomentumData(
           momentum6m.return_rate, momentum6m.sortino_ratio, momentum6m.avg_volume,
           rsi, revenueGrowth, debtToEquity, pbr,
           score1m, score3m, score6m, finalScore,
-          new Date(), new Date()
+          new Date(), new Date(),
+          minPrice, maxPrice, minTradingAmount // 추가된 파라미터
         ]);
 
         successCount++;

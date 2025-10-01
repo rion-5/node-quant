@@ -4,13 +4,21 @@
 
 	interface QueryDateInfo {
 		query_date: string;
+		min_price: number;
+		max_price: number;
+		min_trading_amount: number;
 		count: number;
 		avg_final_score: string;
 		first_date: string;
 		last_date: string;
 		display_text: string;
 	}
-
+	interface QueryCondition {
+		query_date: string;
+		min_price: number;
+		max_price: number;
+		min_trading_amount: number;
+	}
 	interface MomentumResult {
 		ticker: string;
 		return_rate_1m: number;
@@ -45,6 +53,7 @@
 	let loading = false;
 	let error: string | null = null;
 	let showTop10Only = true;
+	let selectedCondition: QueryCondition | null = null;
 
 	async function fetchQueryDates() {
 		try {
@@ -66,7 +75,7 @@
 	}
 
 	async function fetchRanking() {
-		if (!selectedDate) {
+		if (!selectedCondition) {
 			error = '조회 날짜를 선택해주세요';
 			return;
 		}
@@ -78,7 +87,13 @@
 			const response = await fetch('/api/get-momentum-ranking', {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ queryDate: selectedDate })
+				// body: JSON.stringify({ queryDate: selectedDate })
+				body: JSON.stringify({
+					queryDate: selectedCondition.query_date,
+					minPrice: selectedCondition.min_price,
+					maxPrice: selectedCondition.max_price,
+					minTradingAmount: selectedCondition.min_trading_amount
+				})
 			});
 
 			const data = await response.json();
@@ -94,6 +109,15 @@
 			console.error(err);
 		} finally {
 			loading = false;
+		}
+	}
+
+	// select 변경 핸들러
+	function handleConditionChange(event: Event) {
+		const target = event.target as HTMLSelectElement;
+		selectedCondition = target.value ? JSON.parse(target.value) : null;
+		if (selectedCondition) {
+			fetchRanking();
 		}
 	}
 
@@ -138,15 +162,20 @@
 					분석 기준일 선택
 				</label>
 				<select
-					bind:value={selectedDate}
 					id="queryDate"
+					on:change={handleConditionChange}
 					class="w-full rounded-md border border-gray-300 p-3 focus:border-blue-500 focus:ring-2 focus:ring-blue-500"
 				>
 					<option value="">날짜를 선택하세요</option>
-					{#each queryDates as date}
-						<option value={date.query_date}>
-							{date.display_text}
-						</option>
+					{#each queryDates as cond}
+						<option
+							value={JSON.stringify({
+								query_date: cond.query_date,
+								min_price: cond.min_price,
+								max_price: cond.max_price,
+								min_trading_amount: cond.min_trading_amount
+							})}>{cond.display_text}</option
+						>
 					{/each}
 				</select>
 			</div>
@@ -158,6 +187,12 @@
 				</label>
 			</div>
 		</div>
+		{#if selectedCondition}
+			<div class="mt-4 rounded bg-gray-100 p-4">
+				조회 조건: 주가 ${selectedCondition.min_price.toLocaleString()} - ${selectedCondition.max_price.toLocaleString()},
+				최소 거래금액 ${selectedCondition.min_trading_amount.toLocaleString()}
+			</div>
+		{/if}
 	</div>
 
 	<!-- 에러 메시지 -->
