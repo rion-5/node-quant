@@ -135,7 +135,7 @@ export async function computeMomentumData(
     console.log(`Starting momentum computation from ${startDateStr} to ${endDateStr}`);
 
     // Delete existing data for this query date
-    await query(`DELETE FROM momentum_data WHERE query_date = $1`, [endDateStr]);
+    // await query(`DELETE FROM momentum_data WHERE query_date = $1`, [endDateStr]);
 
     // Get trading days
     const tradingDaysRes = await query<{ trade_date: string }>(`
