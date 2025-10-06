@@ -135,48 +135,50 @@ export const POST: RequestHandler = async ({ request }) => {
 
 		await query(updateFinalScoreQuery, [endDate]);
 
-		// 업데이트된 결과 다시 조회
+		// 최종 결과 조회 부분 수정
 		const finalResults = await query<MomentumDataResult>(`
-			SELECT 
-				ticker,
-				first_date_1m,
-				last_date_1m,
-				first_date_3m,
-				last_date_3m,
-				first_date_6m,
-				last_date_6m,
-				first_close_1m,
-				last_close_1m,
-				first_close_3m,
-				last_close_3m,
-				first_close_6m,
-				last_close_6m,
-				return_rate_1m,
-				return_rate_3m,
-				return_rate_6m,
-				sortino_ratio_1m,
-				sortino_ratio_3m,
-				sortino_ratio_6m,
-				avg_volume_1m,
-				avg_volume_3m,
-				avg_volume_6m,
-				rsi,
-				revenue_growth,
-				debt_to_equity,
-				pbr,
-				score_1m,
-				score_3m,
-				score_6m,
-				final_momentum_score,
-				created_at,
-				updated_at
-			FROM momentum_data
-			WHERE query_date = $1
-			AND final_momentum_score IS NOT NULL
-			ORDER BY final_momentum_score DESC
-			LIMIT 100
-		`, [endDate]);
-
+  SELECT 
+    ticker,
+    first_date_1m,
+    last_date_1m,
+    first_date_3m,
+    last_date_3m,
+    first_date_6m,
+    last_date_6m,
+    first_close_1m,
+    last_close_1m,
+    first_close_3m,
+    last_close_3m,
+    first_close_6m,
+    last_close_6m,
+    return_rate_1m,
+    return_rate_3m,
+    return_rate_6m,
+    sortino_ratio_1m,
+    sortino_ratio_3m,
+    sortino_ratio_6m,
+    avg_volume_1m,
+    avg_volume_3m,
+    avg_volume_6m,
+    rsi,
+    revenue_growth,
+    debt_to_equity,
+    pbr,
+    score_1m,
+    score_3m,
+    score_6m,
+    final_momentum_score,
+    created_at,
+    updated_at
+  FROM momentum_data
+  WHERE query_date = $1 
+  AND min_price = $2 
+  AND max_price = $3 
+  AND min_trading_amount = $4
+  AND final_momentum_score IS NOT NULL
+  ORDER BY final_momentum_score DESC
+  LIMIT 100
+`, [endDate, minPrice, maxPrice, minTradingAmount]);
 		console.log(`Returning ${finalResults.length} processed momentum results`);
 
 		return json({
