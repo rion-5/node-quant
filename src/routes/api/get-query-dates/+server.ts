@@ -53,7 +53,7 @@ export const GET: RequestHandler = async () => {
       avg_final_score: Number(date.avg_final_score).toFixed(4),
       first_date: format(date.first_date_6m, 'yyyy-MM-dd'),
       last_date: format(date.last_date_6m, 'yyyy-MM-dd'),
-      display_text: `${format(date.query_date, 'yyyy-MM-dd')} (주가: ${date.min_price}-${date.max_price}, 거래: ${date.min_trading_amount.toLocaleString()} 이상, ${date.count}개 종목, 평균점수: ${Number(date.avg_final_score).toFixed(4)})`
+      display_text: `${format(date.query_date, 'yyyy-MM-dd')} (주가:$${Number(date.min_price).toLocaleString()} - $${Number(date.max_price).toLocaleString()}, 거래:$${Number(date.min_trading_amount).toLocaleString()} 이상, ${date.count}개 종목, 평균점수: ${Number(date.avg_final_score).toFixed(4)})`
     }));
 
     return json({

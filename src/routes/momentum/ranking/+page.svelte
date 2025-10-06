@@ -145,7 +145,13 @@
 		fetchRanking();
 	}
 
-	onMount(fetchQueryDates);
+	onMount(async () => {
+		await fetchQueryDates();
+		if (queryDates.length > 0 && !selectedCondition) {
+			selectedCondition = queryDates[0]; // 첫 번째 옵션 선택
+			await fetchRanking(); // 선택 후 데이터 로드
+		}
+	});
 </script>
 
 <div class="mx-auto max-w-full px-4 py-6">
@@ -166,7 +172,7 @@
 					on:change={handleConditionChange}
 					class="w-full rounded-md border border-gray-300 p-3 focus:border-blue-500 focus:ring-2 focus:ring-blue-500"
 				>
-					<option value="">날짜를 선택하세요</option>
+					<!-- <option value="">날짜를 선택하세요</option> -->
 					{#each queryDates as cond}
 						<option
 							value={JSON.stringify({
