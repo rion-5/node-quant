@@ -11,7 +11,7 @@
 	let error: string | null = null;
 	let sortBy = 'final_momentum_score';
 	let sortOrder = 'desc';
-	let minPrice = 50;
+	let minPrice = 20;
 	let maxPrice = 2000;
 	let minTradingAmount = 1000000000; // 기본 10억
 	interface MomentumData {

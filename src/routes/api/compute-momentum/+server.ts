@@ -41,7 +41,7 @@ interface MomentumDataResult {
 
 export const POST: RequestHandler = async ({ request }) => {
 	try {
-		const { startDate, endDate, minPrice = 50, maxPrice = 2000, minTradingAmount = 1000000000 } = await request.json();
+		const { startDate, endDate, minPrice = 20, maxPrice = 2000, minTradingAmount = 1000000000 } = await request.json();
 
 		if (!startDate || !endDate) {
 			return json({ error: 'startDate and endDate are required' }, { status: 400 });
