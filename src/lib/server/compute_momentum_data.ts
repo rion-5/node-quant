@@ -316,22 +316,47 @@ export async function computeMomentumData(
           return finalScore;
         };
 
-        // 가중치 조정 예시
+        // // 가중치 조정 예시
+        // const score1m = calculateNormalizedScore(
+        //   momentum1m.return_rate, momentum1m.sortino_ratio, revenueGrowth,
+        //   rsi, debtToEquity, pbr,
+        //   [0.35, 0.20, 0.20, 0.15, 0.05, 0.05] // return_rate 비중을 0.40에서 0.35로 낮추고, revenue_growth를 0.15에서 0.20으로 높임
+        // );
+        // const score3m = calculateNormalizedScore(
+        //   momentum3m.return_rate, momentum3m.sortino_ratio, revenueGrowth,
+        //   rsi, debtToEquity, pbr,
+        //   [0.30, 0.25, 0.25, 0.10, 0.05, 0.05] // return_rate 비중을 0.35에서 0.30으로 낮추고, revenue_growth를 0.20에서 0.25로 높임
+        // );
+        // const score6m = calculateNormalizedScore(
+        //   momentum6m.return_rate, momentum6m.sortino_ratio, revenueGrowth,
+        //   rsi, debtToEquity, pbr,
+        //   [0.25, 0.25, 0.30, 0.05, 0.10, 0.05] // revenue_growth를 0.25에서 0.30으로 높임
+        // );
+
+
+
+        // 가중치 조정 예시 (안전성 강조 버전)
         const score1m = calculateNormalizedScore(
           momentum1m.return_rate, momentum1m.sortino_ratio, revenueGrowth,
           rsi, debtToEquity, pbr,
-          [0.35, 0.20, 0.20, 0.15, 0.05, 0.05] // return_rate 비중을 0.40에서 0.35로 낮추고, revenue_growth를 0.15에서 0.20으로 높임
+          [0.25, 0.25, 0.15, 0.15, 0.10, 0.10] // return_rate/revenue_growth ↓, sortino/debt/pbr ↑
         );
         const score3m = calculateNormalizedScore(
           momentum3m.return_rate, momentum3m.sortino_ratio, revenueGrowth,
           rsi, debtToEquity, pbr,
-          [0.30, 0.25, 0.25, 0.10, 0.05, 0.05] // return_rate 비중을 0.35에서 0.30으로 낮추고, revenue_growth를 0.20에서 0.25로 높임
+          [0.20, 0.30, 0.15, 0.10, 0.15, 0.10] // sortino/debt/pbr ↑, return_rate ↓
         );
         const score6m = calculateNormalizedScore(
           momentum6m.return_rate, momentum6m.sortino_ratio, revenueGrowth,
           rsi, debtToEquity, pbr,
-          [0.25, 0.25, 0.30, 0.05, 0.10, 0.05] // revenue_growth를 0.25에서 0.30으로 높임
+          [0.15, 0.30, 0.15, 0.10, 0.15, 0.15] // 장기적으로 sortino/debt/pbr ↑, revenue_growth 유지
         );
+
+        //rsi 강화, 더 보수적
+        // const score1m = calculateNormalizedScore(momentum1m.return_rate, momentum1m.sortino_ratio, revenueGrowth, rsi, debtToEquity, pbr, [0.20, 0.25, 0.15, 0.20, 0.10, 0.10]); // RSI 0.15→0.20
+        // const score3m = calculateNormalizedScore(momentum3m.return_rate, momentum3m.sortino_ratio, revenueGrowth, rsi, debtToEquity, pbr, [0.15, 0.25, 0.15, 0.20, 0.15, 0.10]); // RSI 0.10→0.20
+        // const score6m = calculateNormalizedScore(momentum6m.return_rate, momentum6m.sortino_ratio, revenueGrowth, rsi, debtToEquity, pbr, [0.10, 0.25, 0.15, 0.20, 0.15, 0.15]); // RSI 0.10→0.20
+
 
         // const finalScore = (score1m * 0.4) + (score3m * 0.35) + (score6m * 0.25);
         const finalScore = Math.max(0, (score1m * 0.4) + (score3m * 0.35) + (score6m * 0.25));
