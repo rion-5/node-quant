@@ -375,9 +375,10 @@ export async function computeMomentumData(
     rsi, revenue_growth, debt_to_equity, pbr,
     score_1m, score_3m, score_6m, final_momentum_score,
     created_at, updated_at,
-    min_price, max_price, min_trading_amount
+    min_price, max_price, min_trading_amount,
+    start_date, end_date 
   )
-  VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30, $31, $32, $33, $34, $35, $36)
+  VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30, $31, $32, $33, $34, $35, $36, $37, $38)  
   ON CONFLICT (query_date, ticker, min_price, max_price, min_trading_amount) DO UPDATE SET
     first_date_1m = EXCLUDED.first_date_1m,
     last_date_1m = EXCLUDED.last_date_1m,
@@ -408,7 +409,9 @@ export async function computeMomentumData(
     score_3m = EXCLUDED.score_3m,
     score_6m = EXCLUDED.score_6m,
     final_momentum_score = EXCLUDED.final_momentum_score,
-    updated_at = EXCLUDED.updated_at
+    updated_at = EXCLUDED.updated_at,
+    start_date = EXCLUDED.start_date, 
+    end_date = EXCLUDED.end_date 
 `, [
           endDateStr, ticker,
           momentum1m.first_date, momentum1m.last_date, momentum1m.first_close, momentum1m.last_close,
@@ -420,7 +423,8 @@ export async function computeMomentumData(
           rsi, revenueGrowth, debtToEquity, pbr,
           score1m, score3m, score6m, finalScore,
           new Date(), new Date(),
-          minPrice, maxPrice, minTradingAmount // 추가된 파라미터
+          minPrice, maxPrice, minTradingAmount,
+          startDateStr, endDateStr  // 추가된 값
         ]);
 
         successCount++;
