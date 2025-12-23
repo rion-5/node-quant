@@ -55,6 +55,9 @@
 	let showTop10Only = true;
 	let selectedCondition: QueryCondition | null = null;
 
+	// 표시할 결과 계산
+	$: displayedResults = showTop10Only ? results.slice(0, 10) : results;
+
 	async function fetchQueryDates() {
 		try {
 			const res = await fetch('/api/get-query-dates', { method: 'GET' });
@@ -87,7 +90,6 @@
 			const response = await fetch('/api/get-momentum-ranking', {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
-				// body: JSON.stringify({ queryDate: selectedDate })
 				body: JSON.stringify({
 					queryDate: selectedCondition.query_date,
 					minPrice: selectedCondition.min_price,
@@ -172,7 +174,6 @@
 					on:change={handleConditionChange}
 					class="w-full rounded-md border border-gray-300 p-3 focus:border-blue-500 focus:ring-2 focus:ring-blue-500"
 				>
-					<!-- <option value="">날짜를 선택하세요</option> -->
 					{#each queryDates as cond}
 						<option
 							value={JSON.stringify({
@@ -245,7 +246,7 @@
 			<div class="grid grid-cols-2 gap-4 md:grid-cols-5">
 				<div class="text-center">
 					<div class="text-2xl font-bold text-blue-600">{stats.total_count}</div>
-					<div class="text-sm text-gray-600">총 종목 수</div>
+					<div class="text-sm text-gray-600">이 종목 수</div>
 				</div>
 				<div class="text-center">
 					<div class="text-2xl font-bold text-purple-600">
@@ -345,7 +346,7 @@
 						</tr>
 					</thead>
 					<tbody class="divide-y divide-gray-200 bg-white">
-						{#each showTop10Only ? results.slice(0, 10) : results as result, index}
+						{#each displayedResults as result, index}
 							<tr class="hover:bg-gray-50 {index < 3 ? 'bg-yellow-50' : ''}">
 								<td class="px-4 py-4 whitespace-nowrap">
 									<div class="flex items-center">
@@ -439,11 +440,13 @@
 			</div>
 		</div>
 
-		<!-- 상위 10개 상세 정보 -->
-		{#if results.length > 0}
+		<!-- 상세 정보 테이블 -->
+		{#if displayedResults.length > 0}
 			<div class="mt-6 overflow-hidden rounded-lg bg-white shadow-md">
 				<div class="border-b border-gray-200 px-6 py-4">
-					<h2 class="text-xl font-semibold text-gray-900">상위 10개 종목 상세 정보</h2>
+					<h2 class="text-xl font-semibold text-gray-900">
+						{#if showTop10Only}상위 10개 종목{:else}전체 {results.length}개 종목{/if} 상세 정보
+					</h2>
 					<p class="mt-1 text-sm text-gray-600">
 						각 기간별 소르티노 비율과 거래금액 정보를 포함합니다.
 					</p>
@@ -488,7 +491,7 @@
 							</tr>
 						</thead>
 						<tbody class="divide-y divide-gray-200 bg-white">
-							{#each results.slice(0, 10) as result, index}
+							{#each displayedResults as result, index}
 								<tr class="hover:bg-gray-50 {index < 3 ? 'bg-blue-50' : ''}">
 									<td class="px-4 py-4 text-sm font-medium whitespace-nowrap text-gray-900">
 										#{index + 1}
